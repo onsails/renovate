@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../lib/manager/nuget/index.ts"],"names":[],"mappings":";;;AAAA,yDAA6D;AAE7D,qCAA+C;AAAtC,6GAAA,kBAAkB,OAAA;AAC3B,yCAA8C;AAArC,4GAAA,eAAe,OAAA;AAEX,QAAA,QAAQ,GAAG,4BAAgB,CAAC;AAE5B,QAAA,aAAa,GAAG;IAC3B,SAAS,EAAE;QACT,sBAAsB;QACtB,uBAAuB;QACvB,kCAAkC;KACnC;CACF,CAAC"}

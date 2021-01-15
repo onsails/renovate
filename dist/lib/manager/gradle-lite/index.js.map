@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../lib/manager/gradle-lite/index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;;;;;;AAAA,0EAA4D;AAE5D,qCAAmD;AAA1C,iHAAA,sBAAsB,OAAA;AAC/B,mCAA4C;AAAnC,0GAAA,gBAAgB,OAAA;AAEZ,QAAA,aAAa,GAAG;IAC3B,SAAS,EAAE,CAAC,yBAAyB,EAAE,qBAAqB,CAAC;IAC7D,UAAU,EAAE,gBAAgB,CAAC,EAAE;IAC/B,OAAO,EAAE,KAAK;CACf,CAAC"}

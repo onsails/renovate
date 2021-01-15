@@ -1,0 +1,522 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.migrateConfig = void 0;
+const later_1 = __importDefault(require("@breejs/later"));
+const is_1 = __importDefault(require("@sindresorhus/is"));
+const fast_deep_equal_1 = __importDefault(require("fast-deep-equal"));
+const logger_1 = require("../logger");
+const clone_1 = require("../util/clone");
+const definitions_1 = require("./definitions");
+const options = definitions_1.getOptions();
+let optionTypes;
+const removedOptions = [
+    'maintainYarnLock',
+    'yarnCacheFolder',
+    'yarnMaintenanceBranchName',
+    'yarnMaintenanceCommitMessage',
+    'yarnMaintenancePrTitle',
+    'yarnMaintenancePrBody',
+    'groupBranchName',
+    'groupBranchName',
+    'groupCommitMessage',
+    'groupPrTitle',
+    'groupPrBody',
+    'statusCheckVerify',
+    'lazyGrouping',
+];
+// Returns a migrated config
+function migrateConfig(config, 
+// TODO: remove any type
+parentKey) {
+    var _a, _b;
+    try {
+        if (!optionTypes) {
+            optionTypes = {};
+            options.forEach((option) => {
+                optionTypes[option.name] = option.type;
+            });
+        }
+        const migratedConfig = clone_1.clone(config);
+        const depTypes = [
+            'dependencies',
+            'devDependencies',
+            'engines',
+            'optionalDependencies',
+            'peerDependencies',
+        ];
+        for (const [key, val] of Object.entries(config)) {
+            if (removedOptions.includes(key)) {
+                delete migratedConfig[key];
+            }
+            else if (key === 'pathRules') {
+                if (is_1.default.array(val)) {
+                    migratedConfig.packageRules = is_1.default.array(migratedConfig.packageRules)
+                        ? migratedConfig.packageRules
+                        : [];
+                    migratedConfig.packageRules = val.concat(migratedConfig.packageRules);
+                }
+                delete migratedConfig.pathRules;
+            }
+            else if (key === 'suppressNotifications') {
+                if (is_1.default.nonEmptyArray(val) && val.includes('prEditNotification')) {
+                    migratedConfig.suppressNotifications = migratedConfig.suppressNotifications.filter((item) => item !== 'prEditNotification');
+                }
+            }
+            else if (key.startsWith('masterIssue')) {
+                const newKey = key.replace('masterIssue', 'dependencyDashboard');
+                migratedConfig[newKey] = val;
+                if (optionTypes[newKey] === 'boolean' && val === 'true') {
+                    migratedConfig[newKey] = true;
+                }
+                delete migratedConfig[key];
+            }
+            else if (key === 'gomodTidy') {
+                if (val) {
+                    migratedConfig.postUpdateOptions =
+                        migratedConfig.postUpdateOptions || [];
+                    migratedConfig.postUpdateOptions.push('gomodTidy');
+                }
+                delete migratedConfig.gomodTidy;
+            }
+            else if (key === 'semanticCommits') {
+                if (val === true) {
+                    migratedConfig.semanticCommits = 'enabled';
+                }
+                else if (val === false) {
+                    migratedConfig.semanticCommits = 'disabled';
+                }
+                else if (val !== 'enabled' && val !== 'disabled') {
+                    migratedConfig.semanticCommits = 'auto';
+                }
+            }
+            else if (parentKey === 'hostRules' && key === 'platform') {
+                migratedConfig.hostType = val;
+                delete migratedConfig.platform;
+            }
+            else if (parentKey === 'hostRules' && key === 'endpoint') {
+                migratedConfig.baseUrl = val;
+                delete migratedConfig.endpoint;
+            }
+            else if (parentKey === 'hostRules' && key === 'host') {
+                migratedConfig.hostName = val;
+                delete migratedConfig.host;
+            }
+            else if (key === 'packageRules' && is_1.default.plainObject(val)) {
+                migratedConfig.packageRules = is_1.default.array(migratedConfig.packageRules)
+                    ? migratedConfig.packageRules
+                    : [];
+                migratedConfig.packageRules.push(val);
+            }
+            else if (key === 'packageFiles' && is_1.default.array(val)) {
+                const fileList = [];
+                for (const packageFile of val) {
+                    if (is_1.default.object(packageFile) && !is_1.default.array(packageFile)) {
+                        fileList.push(packageFile.packageFile);
+                        if (Object.keys(packageFile).length > 1) {
+                            migratedConfig.packageRules = is_1.default.array(migratedConfig.packageRules)
+                                ? migratedConfig.packageRules
+                                : [];
+                            const payload = migrateConfig(packageFile, key)
+                                .migratedConfig;
+                            for (const subrule of payload.packageRules || []) {
+                                subrule.paths = [packageFile.packageFile];
+                                migratedConfig.packageRules.push(subrule);
+                            }
+                            delete payload.packageFile;
+                            delete payload.packageRules;
+                            if (Object.keys(payload).length) {
+                                migratedConfig.packageRules.push({
+                                    ...payload,
+                                    paths: [packageFile.packageFile],
+                                });
+                            }
+                        }
+                    }
+                    else {
+                        fileList.push(packageFile);
+                    }
+                }
+                migratedConfig.includePaths = fileList;
+                delete migratedConfig.packageFiles;
+            }
+            else if (depTypes.includes(key)) {
+                migratedConfig.packageRules = is_1.default.array(migratedConfig.packageRules)
+                    ? migratedConfig.packageRules
+                    : [];
+                const depTypePackageRule = migrateConfig(val, key)
+                    .migratedConfig;
+                depTypePackageRule.depTypeList = [key];
+                delete depTypePackageRule.packageRules;
+                migratedConfig.packageRules.push(depTypePackageRule);
+                delete migratedConfig[key];
+            }
+            else if (key === 'pinVersions') {
+                delete migratedConfig.pinVersions;
+                if (val === true) {
+                    migratedConfig.rangeStrategy = 'pin';
+                }
+                else if (val === false) {
+                    migratedConfig.rangeStrategy = 'replace';
+                }
+            }
+            else if (key === 'gitFs') {
+                delete migratedConfig.gitFs;
+            }
+            else if (key === 'rebaseStalePrs') {
+                delete migratedConfig.rebaseStalePrs;
+                if (!migratedConfig.rebaseWhen) {
+                    if (val === null) {
+                        migratedConfig.rebaseWhen = 'auto';
+                    }
+                    if (val === true) {
+                        migratedConfig.rebaseWhen = 'behind-base-branch';
+                    }
+                    if (val === false) {
+                        migratedConfig.rebaseWhen = 'conflicted';
+                    }
+                }
+            }
+            else if (key === 'rebaseConflictedPrs') {
+                delete migratedConfig.rebaseConflictedPrs;
+                if (val === false) {
+                    migratedConfig.rebaseWhen = 'never';
+                }
+            }
+            else if (key === 'exposeEnv') {
+                delete migratedConfig.exposeEnv;
+                if (val === true) {
+                    migratedConfig.trustLevel = 'high';
+                }
+                else if (val === false) {
+                    migratedConfig.trustLevel = 'low';
+                }
+            }
+            else if (key === 'managerBranchPrefix') {
+                delete migratedConfig.managerBranchPrefix;
+                migratedConfig.additionalBranchPrefix = val;
+            }
+            else if (key === 'branchPrefix' &&
+                is_1.default.string(val) &&
+                val.includes('{{')) {
+                const templateIndex = val.indexOf(`{{`);
+                migratedConfig.branchPrefix = val.substring(0, templateIndex);
+                migratedConfig.additionalBranchPrefix = val.substring(templateIndex);
+            }
+            else if (key === 'upgradeInRange') {
+                delete migratedConfig.upgradeInRange;
+                if (val === true) {
+                    migratedConfig.rangeStrategy = 'bump';
+                }
+            }
+            else if (key === 'versionStrategy') {
+                delete migratedConfig.versionStrategy;
+                if (val === 'widen') {
+                    migratedConfig.rangeStrategy = 'widen';
+                }
+            }
+            else if (key === 'semanticPrefix' && is_1.default.string(val)) {
+                delete migratedConfig.semanticPrefix;
+                let [text] = val.split(':'); // TODO: fixme
+                text = text.split('(');
+                [migratedConfig.semanticCommitType] = text;
+                if (text.length > 1) {
+                    [migratedConfig.semanticCommitScope] = text[1].split(')');
+                }
+                else {
+                    migratedConfig.semanticCommitScope = null;
+                }
+            }
+            else if (key === 'extends' &&
+                (is_1.default.array(val) || is_1.default.string(val))) {
+                if (is_1.default.string(migratedConfig.extends)) {
+                    migratedConfig.extends = [migratedConfig.extends];
+                }
+                const presets = migratedConfig.extends;
+                for (let i = 0; i < presets.length; i += 1) {
+                    let preset = presets[i];
+                    if (is_1.default.string(preset)) {
+                        if (preset === 'config:application' || preset === ':js-app') {
+                            preset = 'config:js-app';
+                        }
+                        else if (preset === ':library' || preset === 'config:library') {
+                            preset = 'config:js-lib';
+                        }
+                        else if (preset.startsWith(':masterIssue')) {
+                            preset = preset.replace('masterIssue', 'dependencyDashboard');
+                        }
+                        else if ([':unpublishSafe', 'default:unpublishSafe'].includes(preset)) {
+                            preset = 'npm:unpublishSafe';
+                        }
+                        presets[i] = preset;
+                    }
+                }
+            }
+            else if (key === 'unpublishSafe') {
+                if (val === true) {
+                    migratedConfig.extends = migratedConfig.extends || [];
+                    if (is_1.default.string(migratedConfig.extends)) {
+                        migratedConfig.extends = [migratedConfig.extends];
+                    }
+                    if (![
+                        ':unpublishSafe',
+                        'default:unpublishSafe',
+                        'npm:unpublishSafe',
+                    ].some((x) => migratedConfig.extends.includes(x))) {
+                        migratedConfig.extends.push('npm:unpublishSafe');
+                    }
+                }
+                delete migratedConfig.unpublishSafe;
+            }
+            else if (key === 'versionScheme') {
+                migratedConfig.versioning = val;
+                delete migratedConfig.versionScheme;
+            }
+            else if (key === 'automergeType' &&
+                is_1.default.string(val) &&
+                val.startsWith('branch-')) {
+                migratedConfig.automergeType = 'branch';
+            }
+            else if (key === 'automergeMinor') {
+                migratedConfig.minor = migratedConfig.minor || {};
+                migratedConfig.minor.automerge = val == true; // eslint-disable-line eqeqeq
+                delete migratedConfig[key];
+            }
+            else if (key === 'automergeMajor') {
+                migratedConfig.major = migratedConfig.major || {};
+                migratedConfig.major.automerge = val == true; // eslint-disable-line eqeqeq
+                delete migratedConfig[key];
+            }
+            else if (key === 'multipleMajorPrs') {
+                delete migratedConfig.multipleMajorPrs;
+                migratedConfig.separateMultipleMajor = val;
+            }
+            else if (key === 'renovateFork' && is_1.default.boolean(val)) {
+                delete migratedConfig.renovateFork;
+                migratedConfig.includeForks = val;
+            }
+            else if (key === 'separateMajorReleases') {
+                delete migratedConfig.separateMultipleMajor;
+                migratedConfig.separateMajorMinor = val;
+            }
+            else if (key === 'separatePatchReleases') {
+                delete migratedConfig.separatePatchReleases;
+                migratedConfig.separateMinorPatch = val;
+            }
+            else if (key === 'automergePatch') {
+                migratedConfig.patch = migratedConfig.patch || {};
+                migratedConfig.patch.automerge = val == true; // eslint-disable-line eqeqeq
+                delete migratedConfig[key];
+            }
+            else if (key === 'ignoreNodeModules') {
+                delete migratedConfig.ignoreNodeModules;
+                migratedConfig.ignorePaths = val ? ['node_modules/'] : [];
+            }
+            else if (key === 'automerge' &&
+                is_1.default.string(val) &&
+                ['none', 'patch', 'minor', 'any'].includes(val)) {
+                delete migratedConfig.automerge;
+                if (val === 'none') {
+                    migratedConfig.automerge = false;
+                }
+                else if (val === 'patch') {
+                    migratedConfig.patch = migratedConfig.patch || {};
+                    migratedConfig.patch.automerge = true;
+                    migratedConfig.minor = migratedConfig.minor || {};
+                    migratedConfig.minor.automerge = false;
+                    migratedConfig.major = migratedConfig.major || {};
+                    migratedConfig.major.automerge = false;
+                }
+                else if (val === 'minor') {
+                    migratedConfig.minor = migratedConfig.minor || {};
+                    migratedConfig.minor.automerge = true;
+                    migratedConfig.major = migratedConfig.major || {};
+                    migratedConfig.major.automerge = false;
+                } /* istanbul ignore else: we can never go to else */
+                else if (val === 'any') {
+                    migratedConfig.automerge = true;
+                }
+            }
+            else if (key === 'packages') {
+                migratedConfig.packageRules = is_1.default.array(migratedConfig.packageRules)
+                    ? migratedConfig.packageRules
+                    : [];
+                migratedConfig.packageRules = migratedConfig.packageRules.concat(migratedConfig.packages);
+                delete migratedConfig.packages;
+            }
+            else if (key === 'excludedPackageNames') {
+                migratedConfig.excludePackageNames = val;
+                delete migratedConfig.excludedPackageNames;
+            }
+            else if (key === 'packageName') {
+                migratedConfig.packageNames = [val];
+                delete migratedConfig.packageName;
+            }
+            else if (key === 'packagePattern') {
+                migratedConfig.packagePatterns = [val];
+                delete migratedConfig.packagePattern;
+            }
+            else if (key === 'baseBranch') {
+                migratedConfig.baseBranches = (is_1.default.array(val) ? val : [val]);
+                delete migratedConfig.baseBranch;
+            }
+            else if (key === 'schedule' && val) {
+                // massage to array first
+                const schedules = is_1.default.string(val) ? [val] : [...val];
+                // split 'and'
+                const schedulesLength = schedules.length;
+                for (let i = 0; i < schedulesLength; i += 1) {
+                    if (schedules[i].includes(' and ') &&
+                        schedules[i].includes('before ') &&
+                        schedules[i].includes('after ')) {
+                        const parsedSchedule = later_1.default.parse.text(
+                        // We need to massage short hours first before we can parse it
+                        schedules[i].replace(/( \d?\d)((a|p)m)/g, '$1:00$2')).schedules[0];
+                        // Only migrate if the after time is greater than before, e.g. "after 10pm and before 5am"
+                        if (((_a = parsedSchedule === null || parsedSchedule === void 0 ? void 0 : parsedSchedule.t_a) === null || _a === void 0 ? void 0 : _a[0]) > ((_b = parsedSchedule === null || parsedSchedule === void 0 ? void 0 : parsedSchedule.t_b) === null || _b === void 0 ? void 0 : _b[0])) {
+                            const toSplit = schedules[i];
+                            schedules[i] = toSplit
+                                .replace(/^(.*?)(after|before) (.*?) and (after|before) (.*?)( |$)(.*)/, '$1$2 $3 $7')
+                                .trim();
+                            schedules.push(toSplit
+                                .replace(/^(.*?)(after|before) (.*?) and (after|before) (.*?)( |$)(.*)/, '$1$4 $5 $7')
+                                .trim());
+                        }
+                    }
+                }
+                for (let i = 0; i < schedules.length; i += 1) {
+                    if (schedules[i].includes('on the last day of the month')) {
+                        schedules[i] = schedules[i].replace('on the last day of the month', 'on the first day of the month');
+                    }
+                    if (schedules[i].includes('on every weekday')) {
+                        schedules[i] = schedules[i].replace('on every weekday', 'every weekday');
+                    }
+                    if (schedules[i].endsWith(' every day')) {
+                        schedules[i] = schedules[i].replace(' every day', '');
+                    }
+                    if (/every (mon|tues|wednes|thurs|fri|satur|sun)day$/.test(schedules[i])) {
+                        schedules[i] = schedules[i].replace(/every ([a-z]*day)$/, 'on $1');
+                    }
+                    if (schedules[i].endsWith('days')) {
+                        schedules[i] = schedules[i].replace('days', 'day');
+                    }
+                }
+                if (is_1.default.string(val) && schedules.length === 1) {
+                    [migratedConfig.schedule] = schedules; // TODO: fixme
+                }
+                else {
+                    migratedConfig.schedule = schedules;
+                }
+            }
+            else if (is_1.default.string(val) && val.startsWith('{{semanticPrefix}}')) {
+                migratedConfig[key] = val.replace('{{semanticPrefix}}', '{{#if semanticCommitType}}{{semanticCommitType}}{{#if semanticCommitScope}}({{semanticCommitScope}}){{/if}}: {{/if}}');
+            }
+            else if (key === 'depTypes' && is_1.default.array(val)) {
+                val.forEach((depType) => {
+                    if (is_1.default.object(depType) && !is_1.default.array(depType)) {
+                        const depTypeName = depType.depType;
+                        if (depTypeName) {
+                            migratedConfig.packageRules = is_1.default.array(migratedConfig.packageRules)
+                                ? migratedConfig.packageRules
+                                : [];
+                            const newPackageRule = migrateConfig(depType, key).migratedConfig;
+                            delete newPackageRule.depType;
+                            newPackageRule.depTypeList = [depTypeName];
+                            migratedConfig.packageRules.push(newPackageRule);
+                        }
+                    }
+                });
+                delete migratedConfig.depTypes;
+            }
+            else if (optionTypes[key] === 'object' && is_1.default.boolean(val)) {
+                migratedConfig[key] = { enabled: val };
+            }
+            else if (optionTypes[key] === 'boolean') {
+                if (val === 'true') {
+                    migratedConfig[key] = true;
+                }
+                else if (val === 'false') {
+                    migratedConfig[key] = false;
+                }
+            }
+            else if (optionTypes[key] === 'string' &&
+                is_1.default.array(val) &&
+                val.length === 1) {
+                migratedConfig[key] = String(val[0]);
+            }
+            else if (key === 'node' && val.enabled === true) {
+                delete migratedConfig.node.enabled;
+                migratedConfig.travis = migratedConfig.travis || {};
+                migratedConfig.travis.enabled = true;
+                if (!Object.keys(migratedConfig.node).length) {
+                    delete migratedConfig.node;
+                }
+                else {
+                    const subMigrate = migrateConfig(migratedConfig.node, key);
+                    migratedConfig.node = subMigrate.migratedConfig;
+                }
+            }
+            else if (is_1.default.array(val)) {
+                const newArray = [];
+                for (const item of migratedConfig[key]) {
+                    if (is_1.default.object(item) && !is_1.default.array(item)) {
+                        const arrMigrate = migrateConfig(item, key);
+                        newArray.push(arrMigrate.migratedConfig);
+                    }
+                    else {
+                        newArray.push(item);
+                    }
+                }
+                migratedConfig[key] = newArray;
+            }
+            else if (key === 'compatibility' && is_1.default.object(val)) {
+                migratedConfig.constraints = migratedConfig.compatibility;
+                delete migratedConfig.compatibility;
+            }
+            else if (is_1.default.object(val)) {
+                const subMigrate = migrateConfig(migratedConfig[key], key);
+                if (subMigrate.isMigrated) {
+                    migratedConfig[key] = subMigrate.migratedConfig;
+                }
+            }
+            else if (key.startsWith('commitMessage') &&
+                is_1.default.string(val) &&
+                (val.includes('currentVersion') || val.includes('newVersion'))) {
+                migratedConfig[key] = val
+                    .replace(/currentVersion/g, 'currentValue')
+                    .replace(/newVersion/g, 'newValue')
+                    .replace(/newValueMajor/g, 'newMajor')
+                    .replace(/newValueMinor/g, 'newMinor');
+            }
+            else if (key === 'raiseDeprecationWarnings') {
+                delete migratedConfig.raiseDeprecationWarnings;
+                if (val === false) {
+                    migratedConfig.suppressNotifications =
+                        migratedConfig.suppressNotifications || [];
+                    migratedConfig.suppressNotifications.push('deprecationWarningIssues');
+                }
+            }
+        }
+        if (migratedConfig.endpoints) {
+            migratedConfig.hostRules = migratedConfig.endpoints;
+            delete migratedConfig.endpoints;
+        }
+        const isMigrated = !fast_deep_equal_1.default(config, migratedConfig);
+        if (isMigrated) {
+            // recursive call in case any migrated configs need further migrating
+            return {
+                isMigrated,
+                migratedConfig: migrateConfig(migratedConfig).migratedConfig,
+            };
+        }
+        return { isMigrated, migratedConfig };
+    }
+    catch (err) /* istanbul ignore next */ {
+        logger_1.logger.debug({ config, err }, 'migrateConfig() error');
+        throw err;
+    }
+}
+exports.migrateConfig = migrateConfig;
+//# sourceMappingURL=migration.js.map

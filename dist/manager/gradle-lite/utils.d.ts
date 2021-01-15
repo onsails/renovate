@@ -1,0 +1,11 @@
+import { PackageDependency } from '../common';
+import { ManagerData, PackageVariables, Token, VariableRegistry } from './common';
+export declare function versionLikeSubstring(input: string): string | null;
+export declare function isDependencyString(input: string): boolean;
+export declare function parseDependencyString(input: string): PackageDependency<ManagerData> | null;
+export declare function interpolateString(childTokens: Token[], variables: PackageVariables): string | null;
+export declare function isGradleFile(path: string): boolean;
+export declare function isPropsFile(path: string): boolean;
+export declare function toAbsolutePath(packageFile: string): string;
+export declare function reorderFiles(packageFiles: string[]): string[];
+export declare function getVars(registry: VariableRegistry, dir: string, vars?: PackageVariables): PackageVariables;

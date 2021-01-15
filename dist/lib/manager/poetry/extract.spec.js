@@ -1,0 +1,104 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const fs_1 = require("fs");
+const extract_1 = require("./extract");
+const pyproject1toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.1.toml', 'utf8');
+const pyproject2toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.2.toml', 'utf8');
+const pyproject3toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.3.toml', 'utf8');
+const pyproject4toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.4.toml', 'utf8');
+const pyproject5toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.5.toml', 'utf8');
+const pyproject6toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.6.toml', 'utf8');
+const pyproject7toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.7.toml', 'utf8');
+const pyproject8toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.8.toml', 'utf8');
+const pyproject9toml = fs_1.readFileSync('lib/manager/poetry/__fixtures__/pyproject.9.toml', 'utf8');
+describe('lib/manager/poetry/extract', () => {
+    describe('extractPackageFile()', () => {
+        let filename;
+        beforeEach(() => {
+            filename = '';
+        });
+        it('returns null for empty', () => {
+            expect(extract_1.extractPackageFile('nothing here', filename)).toBeNull();
+        });
+        it('returns null for parsed file without poetry section', () => {
+            expect(extract_1.extractPackageFile(pyproject5toml, filename)).toBeNull();
+        });
+        it('extracts multiple dependencies', () => {
+            const res = extract_1.extractPackageFile(pyproject1toml, filename);
+            expect(res.deps).toMatchSnapshot();
+            expect(res.deps).toHaveLength(9);
+            expect(res.constraints).toEqual({
+                poetry: 'poetry>=1.0 wheel',
+                python: '~2.7 || ^3.4',
+            });
+        });
+        it('extracts multiple dependencies (with dep = {version = "1.2.3"} case)', () => {
+            const res = extract_1.extractPackageFile(pyproject2toml, filename);
+            expect(res.deps).toMatchSnapshot();
+            expect(res.deps).toHaveLength(7);
+        });
+        it('handles case with no dependencies', () => {
+            const res = extract_1.extractPackageFile(pyproject3toml, filename);
+            expect(res).toBeNull();
+        });
+        it('handles multiple constraint dependencies', () => {
+            const res = extract_1.extractPackageFile(pyproject4toml, filename);
+            expect(res.deps).toMatchSnapshot();
+            expect(res.deps).toHaveLength(1);
+        });
+        it('extracts registries', () => {
+            const res = extract_1.extractPackageFile(pyproject6toml, filename);
+            expect(res.registryUrls).toMatchSnapshot();
+            expect(res.registryUrls).toHaveLength(3);
+        });
+        it('can parse empty registries', () => {
+            const res = extract_1.extractPackageFile(pyproject7toml, filename);
+            expect(res.registryUrls).toBeNull();
+        });
+        it('can parse missing registries', () => {
+            const res = extract_1.extractPackageFile(pyproject1toml, filename);
+            expect(res.registryUrls).toBeNull();
+        });
+        it('dedupes registries', () => {
+            const res = extract_1.extractPackageFile(pyproject8toml, filename);
+            expect(res.registryUrls).toMatchSnapshot();
+        });
+        it('extracts mixed versioning types', () => {
+            const res = extract_1.extractPackageFile(pyproject9toml, filename);
+            expect(res).toMatchSnapshot();
+        });
+        it('skips git dependencies', () => {
+            const content = '[tool.poetry.dependencies]\r\nflask = {git = "https://github.com/pallets/flask.git"}\r\nwerkzeug = ">=0.14"';
+            const res = extract_1.extractPackageFile(content, filename).deps;
+            expect(res[0].depName).toBe('flask');
+            expect(res[0].currentValue).toBe('');
+            expect(res[0].skipReason).toBe('git-dependency');
+            expect(res).toHaveLength(2);
+        });
+        it('skips git dependencies with version', () => {
+            const content = '[tool.poetry.dependencies]\r\nflask = {git = "https://github.com/pallets/flask.git", version="1.2.3"}\r\nwerkzeug = ">=0.14"';
+            const res = extract_1.extractPackageFile(content, filename).deps;
+            expect(res[0].depName).toBe('flask');
+            expect(res[0].currentValue).toBe('1.2.3');
+            expect(res[0].skipReason).toBe('git-dependency');
+            expect(res).toHaveLength(2);
+        });
+        it('skips path dependencies', () => {
+            const content = '[tool.poetry.dependencies]\r\nflask = {path = "/some/path/"}\r\nwerkzeug = ">=0.14"';
+            const res = extract_1.extractPackageFile(content, filename).deps;
+            expect(res[0].depName).toBe('flask');
+            expect(res[0].currentValue).toBe('');
+            expect(res[0].skipReason).toBe('path-dependency');
+            expect(res).toHaveLength(2);
+        });
+        it('skips path dependencies with version', () => {
+            const content = '[tool.poetry.dependencies]\r\nflask = {path = "/some/path/", version = "1.2.3"}\r\nwerkzeug = ">=0.14"';
+            const res = extract_1.extractPackageFile(content, filename).deps;
+            expect(res[0].depName).toBe('flask');
+            expect(res[0].currentValue).toBe('1.2.3');
+            expect(res[0].skipReason).toBe('path-dependency');
+            expect(res).toHaveLength(2);
+        });
+    });
+});
+//# sourceMappingURL=extract.spec.js.map

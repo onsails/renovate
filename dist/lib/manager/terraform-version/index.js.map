@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../../lib/manager/terraform-version/index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;;;;;;AAAA,gFAAkE;AAElE,qCAA+C;AAAtC,6GAAA,kBAAkB,OAAA;AAEd,QAAA,aAAa,GAAG;IAC3B,SAAS,EAAE,CAAC,4BAA4B,CAAC;IACzC,UAAU,EAAE,mBAAmB,CAAC,EAAE;IAClC,cAAc,EAAE,mBAAmB;CACpC,CAAC"}

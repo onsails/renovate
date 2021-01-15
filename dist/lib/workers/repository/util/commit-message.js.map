@@ -1,0 +1,1 @@
+{"version":3,"file":"commit-message.js","sourceRoot":"","sources":["../../../../../lib/workers/repository/util/commit-message.ts"],"names":[],"mappings":";;;AAAa,QAAA,+BAA+B,GAAG,GAAG,CAAC;AAE5C,MAAM,yBAAyB,GAAG,CACvC,mBAA2B,EACnB,EAAE,CACV,GAAG,mBAAmB,GACpB,mBAAmB,CAAC,QAAQ,CAAC,uCAA+B,CAAC;IAC3D,CAAC,CAAC,EAAE;IACJ,CAAC,CAAC,uCACN,EAAE,CAAC;AAPQ,QAAA,yBAAyB,6BAOjC"}

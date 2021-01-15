@@ -1,0 +1,1 @@
+{"version":3,"file":"queue.spec.js","sourceRoot":"","sources":["../../../../lib/util/http/queue.spec.ts"],"names":[],"mappings":";;AAAA,6CAA6C;AAC7C,mCAAmC;AAEnC,QAAQ,CAAC,cAAO,CAAC,UAAU,CAAC,EAAE,GAAG,EAAE;IACjC,EAAE,CAAC,8BAA8B,EAAE,GAAG,EAAE;QACtC,MAAM,CAAC,gBAAQ,CAAC,IAAI,CAAC,CAAC,CAAC,QAAQ,EAAE,CAAC;IACpC,CAAC,CAAC,CAAC;AACL,CAAC,CAAC,CAAC"}

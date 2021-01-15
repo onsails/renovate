@@ -1,0 +1,61 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const platforms_1 = require("../../constants/platforms");
+describe('platform/azure/azure-got-wrapper', () => {
+    let azure;
+    let hostRules;
+    beforeEach(() => {
+        // reset module
+        jest.resetModules();
+        hostRules = require('../../util/host-rules');
+        azure = require('./azure-got-wrapper');
+    });
+    describe('gitApi', () => {
+        it('should throw an error if no config found', () => {
+            expect(azure.gitApi).toThrow('No config found for azure');
+            expect(azure.coreApi).toThrow('No config found for azure');
+            expect(azure.policyApi).toThrow('No config found for azure');
+        });
+        it('should set personal access token and endpoint', () => {
+            hostRules.add({
+                hostType: platforms_1.PLATFORM_TYPE_AZURE,
+                token: '1234567890123456789012345678901234567890123456789012',
+                baseUrl: 'https://dev.azure.com/renovate1',
+            });
+            azure.setEndpoint('https://dev.azure.com/renovate1');
+            const res = azure.azureObj();
+            delete res.rest.client.userAgent;
+            delete res.vsoClient.restClient.client.userAgent;
+            // We will track if the lib azure-devops-node-api change
+            expect(res).toMatchSnapshot();
+        });
+        it('should set bearer token and endpoint', () => {
+            hostRules.add({
+                hostType: platforms_1.PLATFORM_TYPE_AZURE,
+                token: 'token',
+                baseUrl: 'https://dev.azure.com/renovate2',
+            });
+            azure.setEndpoint('https://dev.azure.com/renovate2');
+            const res = azure.azureObj();
+            delete res.rest.client.userAgent;
+            delete res.vsoClient.restClient.client.userAgent;
+            // We will track if the lib azure-devops-node-api change
+            expect(res).toMatchSnapshot();
+        });
+        it('should set password and endpoint', () => {
+            hostRules.add({
+                hostType: platforms_1.PLATFORM_TYPE_AZURE,
+                username: 'user',
+                password: 'pass',
+                baseUrl: 'https://dev.azure.com/renovate3',
+            });
+            azure.setEndpoint('https://dev.azure.com/renovate3');
+            const res = azure.azureObj();
+            delete res.rest.client.userAgent;
+            delete res.vsoClient.restClient.client.userAgent;
+            // We will track if the lib azure-devops-node-api change
+            expect(res).toMatchSnapshot();
+        });
+    });
+});
+//# sourceMappingURL=azure-got-wrapper.spec.js.map

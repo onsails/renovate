@@ -1,0 +1,169 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const httpMock = __importStar(require("../../../test/http-mock"));
+const util_1 = require("../../../test/util");
+const bitbucket_1 = require("../../util/http/bitbucket");
+const comments = __importStar(require("./comments"));
+const baseUrl = 'https://api.bitbucket.org';
+describe(util_1.getName(__filename), () => {
+    const config = { repository: 'some/repo' };
+    beforeEach(() => {
+        jest.clearAllMocks();
+        httpMock.reset();
+        httpMock.setup();
+        bitbucket_1.setBaseUrl(baseUrl);
+    });
+    describe('ensureComment()', () => {
+        it('does not throw', async () => {
+            expect.assertions(2);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/3/comments?pagelen=100')
+                .reply(200);
+            expect(await comments.ensureComment({
+                config,
+                number: 3,
+                topic: 'topic',
+                content: 'content',
+            })).toBe(false);
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('add comment if not found', async () => {
+            expect.assertions(2);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, { values: [] })
+                .post('/2.0/repositories/some/repo/pullrequests/5/comments')
+                .reply(200);
+            expect(await comments.ensureComment({
+                config,
+                number: 5,
+                topic: 'topic',
+                content: 'content',
+            })).toBe(true);
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('add updates comment if necessary', async () => {
+            expect.assertions(2);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, {
+                values: [
+                    {
+                        id: 5,
+                        content: { raw: '### some-subject\n\nsome\nobsolete\ncontent' },
+                    },
+                ],
+            })
+                .put('/2.0/repositories/some/repo/pullrequests/5/comments/5')
+                .reply(200);
+            const res = await comments.ensureComment({
+                config,
+                number: 5,
+                topic: 'some-subject',
+                content: 'some\ncontent',
+            });
+            expect(res).toBe(true);
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('skips comment', async () => {
+            expect.assertions(2);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, {
+                values: [
+                    {
+                        id: 5,
+                        content: { raw: 'blablabla' },
+                    },
+                ],
+            });
+            expect(await comments.ensureComment({
+                config,
+                number: 5,
+                topic: null,
+                content: 'blablabla',
+            })).toBe(true);
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+    });
+    describe('ensureCommentRemoval()', () => {
+        it('does not throw', async () => {
+            expect.assertions(1);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, { values: [] });
+            await comments.ensureCommentRemoval(config, 5, 'topic');
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('deletes comment by topic if found', async () => {
+            expect.assertions(1);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, {
+                values: [
+                    {
+                        id: 5,
+                        content: { raw: '### some-subject\n\nsome-content' },
+                    },
+                ],
+            })
+                .delete('/2.0/repositories/some/repo/pullrequests/5/comments/5')
+                .reply(200);
+            await comments.ensureCommentRemoval(config, 5, 'some-subject');
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('deletes comment by content if found', async () => {
+            expect.assertions(1);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, {
+                values: [
+                    {
+                        id: 5,
+                        content: { raw: '\n\nsome-content\n\n' },
+                    },
+                ],
+            })
+                .delete('/2.0/repositories/some/repo/pullrequests/5/comments/5')
+                .reply(200);
+            await comments.ensureCommentRemoval(config, 5, undefined, 'some-content');
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('deletes nothing', async () => {
+            expect.assertions(1);
+            httpMock
+                .scope(baseUrl)
+                .get('/2.0/repositories/some/repo/pullrequests/5/comments?pagelen=100')
+                .reply(200, { values: [] });
+            await comments.ensureCommentRemoval(config, 5, 'topic');
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+    });
+});
+//# sourceMappingURL=comments.spec.js.map

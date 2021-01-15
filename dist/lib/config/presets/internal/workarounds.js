@@ -1,0 +1,56 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.presets = void 0;
+exports.presets = {
+    all: {
+        description: [
+            'A collection of workarounds for known problems with packages',
+        ],
+        extends: [
+            'workarounds:mavenCommonsAncientVersion',
+            'workarounds:ignoreSbtLatestIntegration',
+            'workarounds:ignoreSpringCloudNumeric',
+            'workarounds:ignoreHttp4sDigestMilestones',
+        ],
+    },
+    mavenCommonsAncientVersion: {
+        packageRules: [
+            {
+                datasources: ['maven', 'sbt-package'],
+                packagePatterns: ['^commons-'],
+                allowedVersions: '!/^200\\d{5}(\\.\\d+)?/',
+            },
+        ],
+    },
+    ignoreSbtLatestIntegration: {
+        description: 'Do not upgrade sbt latest.integration',
+        packageRules: [
+            {
+                managers: ['sbt'],
+                matchCurrentVersion: '/^latest\\.integration$/',
+                enabled: false,
+            },
+        ],
+    },
+    ignoreSpringCloudNumeric: {
+        description: 'Ignore spring cloud 1.x releases',
+        packageRules: [
+            {
+                datasources: ['maven'],
+                packageNames: ['org.springframework.cloud:spring-cloud-starter-parent'],
+                allowedVersions: '/^[A-Z]/',
+            },
+        ],
+    },
+    ignoreHttp4sDigestMilestones: {
+        description: 'Ignore http4s digest-based 1.x milestones',
+        packageRules: [
+            {
+                managers: ['sbt'],
+                packagePatterns: ['^org\\.http4s:'],
+                allowedVersions: `!/^1\\.0-\\d+-[a-fA-F0-9]{7}$/`,
+            },
+        ],
+    },
+};
+//# sourceMappingURL=workarounds.js.map

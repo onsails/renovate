@@ -1,0 +1,113 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const __1 = require("..");
+const httpMock = __importStar(require("../../../test/http-mock"));
+const _1 = require(".");
+const orbData = {
+    data: {
+        orb: {
+            name: 'hutson/library-release-workflows',
+            homeUrl: '',
+            versions: [
+                { version: '4.2.0', createdAt: '2018-12-13T23:19:09.356Z' },
+                { version: '4.1.6', createdAt: '2018-12-12T18:56:42.563Z' },
+                { version: '4.1.5', createdAt: '2018-12-12T17:13:31.542Z' },
+                { version: '4.1.4', createdAt: '2018-12-11T22:13:29.297Z' },
+                { version: '4.1.3', createdAt: '2018-12-11T21:40:44.870Z' },
+                { version: '4.1.2', createdAt: '2018-12-11T21:28:37.846Z' },
+                { version: '4.1.1', createdAt: '2018-12-11T18:24:13.119Z' },
+                { version: '4.1.0', createdAt: '2018-12-11T18:14:41.116Z' },
+                { version: '4.0.0', createdAt: '2018-12-11T17:41:26.595Z' },
+                { version: '3.0.0', createdAt: '2018-12-11T05:28:14.080Z' },
+            ],
+        },
+    },
+};
+const baseUrl = 'https://circleci.com';
+describe('datasource/orb', () => {
+    describe('getReleases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+            httpMock.setup();
+        });
+        afterEach(() => {
+            httpMock.reset();
+        });
+        it('returns null for empty result', async () => {
+            httpMock.scope(baseUrl).post('/graphql-unstable').reply(200, {});
+            expect(await __1.getPkgReleases({
+                datasource: _1.id,
+                depName: 'hyper-expanse/library-release-workflows',
+            })).toBeNull();
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('returns null for missing orb', async () => {
+            httpMock
+                .scope(baseUrl)
+                .post('/graphql-unstable')
+                .reply(200, { data: {} });
+            expect(await __1.getPkgReleases({
+                datasource: _1.id,
+                depName: 'hyper-expanse/library-release-wonkflows',
+            })).toBeNull();
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('returns null for 404', async () => {
+            httpMock.scope(baseUrl).post('/graphql-unstable').reply(404);
+            expect(await __1.getPkgReleases({
+                datasource: _1.id,
+                depName: 'hyper-expanse/library-release-workflows',
+            })).toBeNull();
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('returns null for unknown error', async () => {
+            httpMock.scope(baseUrl).post('/graphql-unstable').replyWithError('');
+            expect(await __1.getPkgReleases({
+                datasource: _1.id,
+                depName: 'hyper-expanse/library-release-workflows',
+            })).toBeNull();
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('processes real data', async () => {
+            httpMock.scope(baseUrl).post('/graphql-unstable').reply(200, orbData);
+            const res = await __1.getPkgReleases({
+                datasource: _1.id,
+                depName: 'hyper-expanse/library-release-workflows',
+            });
+            expect(res).toMatchSnapshot();
+            expect(res).not.toBeNull();
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+        it('processes homeUrl', async () => {
+            orbData.data.orb.homeUrl = 'https://google.com';
+            httpMock.scope(baseUrl).post('/graphql-unstable').reply(200, orbData);
+            const res = await __1.getPkgReleases({
+                datasource: _1.id,
+                depName: 'hyper-expanse/library-release-workflows',
+            });
+            expect(res).toMatchSnapshot();
+            expect(res.homepage).toEqual('https://google.com');
+            expect(httpMock.getTrace()).toMatchSnapshot();
+        });
+    });
+});
+//# sourceMappingURL=index.spec.js.map
